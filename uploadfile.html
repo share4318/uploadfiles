@@ -1,0 +1,203 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+	<script type="text/javascript"  src="JS/jquery-3.4.1.min.js"></script>
+	<title>文件上传</title>
+</head>
+<style>
+*{
+	font-family: 'microsoft yahei';
+	color: #4A4A4A;
+}
+.upload{
+	width: 700px;
+	padding: 20px;
+	border: 1px dashed #ccc;
+	margin: 5px auto;
+	border-radius: 5px;
+}
+.uploadList{
+	width: 700px;
+	height:250px;
+	padding: 20px;
+	border: 1px dashed #ccc;
+	margin: 5px auto;
+	border-radius: 5px;
+	overflow:auto;
+}
+.uploadBox{
+	width: 100%;
+	height: 35px;
+	position: relative;
+}
+.uploadBox input{
+	width: 300px;
+	height: 30px;
+	background: red;
+	position: absolute;
+	left: 0;
+	z-index: 201;
+	opacity: 0;
+	cursor: pointer;
+}
+.uploadBox .inputCover{
+	width: 300px;
+	height: 30px;
+	position: absolute;
+	left: 0;
+	z-index: 200;
+	text-align: center;
+	line-height: 30px;
+	font-size: 14px;
+	border: 1px solid #009393;
+	border-radius: 5px;
+	cursor: pointer;
+}
+.uploadBox .submit{
+	width: 100px;
+	height: 30px;
+	position: absolute;
+	left:305px;
+	border-radius: 5px;
+	border: 1px solid #ccc;
+	background: #F0F0F0;
+	outline: none;
+	cursor: pointer;
+}
+.uploadBox .submit:hover{
+	background: #E0E0E0;
+}
+.uploadBox .processBar{
+	position: absolute;
+	display: block;
+	left:500px;
+	width: 0;
+	height: 12px;
+	top: 13px;
+	background: #009393;
+}
+.uploadBox .processNum{
+	position: absolute;
+	display: block;
+	left:620px;
+	line-height: 12px;
+	top: 13px;
+	color: #009393;
+	font-size: 12px;
+}
+</style>
+<script>
+$(document).ready(function(){
+	//上传准备信息
+	$("#file").change(function(){
+		var currentForm=$(this).parent("form");
+		var fileInput= $(this);
+		var submitButton=$(currentForm).find(".submit");
+		$(submitButton).removeAttr("disabled");
+		$("#fileList").text("");
+		for(let i in fileInput[0].files)
+		{
+			var f=fileInput[0].files[i];
+			if(f["size"]>0)
+			{
+				$("#fileList").append("<div id='ul_"+i+"' class='uploadBox'>"
+				+"<span class='fName'>"+f["name"]+"</span>/"
+				+parseInt(f["size"]/1024)+"k"
+				+"<span class='processBar' style='width=0'></span>"
+				+"<span class='processNum'>等待上传</span>"
+				+"</div>");
+			}
+		}
+	});
+	$(".submit").click(function(){
+		var currentForm=$(this).parent("form");
+		var fileInput= $(currentForm).find('#file');
+		
+		if($(fileInput).val() == ''){
+			alert('请先选择文件！');
+		}else{
+			$(this).attr("disabled","disabled");
+			upload('upload',fileInput,$(this),'fileList','response');
+		}
+	});
+});
+
+//提交验证
+function upload(act,fileObject,submitButton,ListName,ResponseName)
+{
+	var n=1;
+	var tn=$(fileObject)[0].files.length;
+	submitButton.text("开始上传");
+	//接口接收参数 键值形式 添加到formData中
+	for(let i in $(fileObject)[0].files)
+	{
+		var formData = new FormData();
+		var f=$(fileObject)[0].files[i];
+		if(f["size"]>0)
+		{
+			formData.append("file",f);
+			$.ajax({
+				type:"POST",
+				url:"function/api_res.php?act="+act,
+				async:true,  //循环只能为同步
+				data: formData,
+				contentType: false,
+				processData: false,
+				cache:false,
+				xhr:function(){//获取上传进度 
+					myXhr = $.ajaxSettings.xhr();
+					if(myXhr.upload){
+						myXhr.upload.addEventListener('progress',function(e){//监听progress事件
+							var loaded = e.loaded;//已上传
+							var total = e.total;//总大小
+							var percent = Math.floor(100*loaded/total);//百分比
+							
+							var nDiv=$("#"+ListName).find("div#ul_"+i);
+							var processNum=$(nDiv).find('span.processNum');
+							var processBar=$(nDiv).find('span.processBar');
+							
+							$(processNum).text(percent+"%");//数显进度
+							$(processBar).css("width",percent+"px");//图显进度
+						}, false);
+					}
+					return myXhr;
+				},
+				success:function(data,status){
+					var ds= eval(data);//把文本转为JSON对象
+					$("#"+ResponseName).html($("#"+ResponseName).html()+ds.html);
+					n++;
+					if(n>=tn)
+					{
+						submitButton.text("上传");
+						submitButton.removeAttr("disabled");
+					}else
+					{
+						submitButton.text("上传中...["+n+"/"+tn+"]");
+					}
+					
+				},
+				error:function(XMLHttpRequest, textStatus, errorThrown)
+				{
+					alert(errorThrown);	
+				}
+			});
+		};
+	};
+	$(fileObject).val("");
+}
+</script>
+<body>
+<div id="up01" class="upload"> 
+	<div class="uploadBox">
+		<span class="inputCover">选择文件</span>
+		<form enctype="multipart/form-data">
+			<input type="file" name="file" id="file" size="50" multiple="multiple" />
+			<button type="button" class="submit">上传</button>
+		</form>
+	</div>
+</div>
+<div id="fileList" class="uploadList"></div>
+<div id="response" class="uploadList"></div>
+</body>
+</html>
